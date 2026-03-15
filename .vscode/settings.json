@@ -1,6 +1,0 @@
-{
-  "terminal.integrated.cwd": "C:\\Festplatte (D)\\Dateien\\AI\\VSC\\Beginner Projects\\project1",
-  "terminal.integrated.env.windows": {
-    "PATH": "C:\\Users\\frede\\AppData\\Roaming\\Python\\Python313\\Scripts;${env:PATH}"
-  }
-}

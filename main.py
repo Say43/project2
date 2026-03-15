@@ -1,43 +1,56 @@
-from langchain_core.messages import HumanMessage
-from langchain_openai import ChatOpenAI
-from langchain.tools import tool
-from langgraph.prebuilt import create_react_agent
+import io
+import PyPDF2
+import streamlit as st
 from dotenv import load_dotenv
 
 load_dotenv()
 
+st.set_page_config(page_title="AI Resume Critiquer", page_icon=":page_facing_up:")
 
-@tool
-def calculate(a: float, b: float) -> str:
-    """Useful for performing basic arithmetic calculations with numbers."""
-    print("Tool has been called")
-    return f"The result of {a} + {b} is {a + b}."
+st.title("AI Resume Critiquer")
+st.markdown("Upload your resume in PDF format, and let the app review its content locally.")
 
 
-def main():
-    model = ChatOpenAI(temperature=0)
-
-    tools = []
-    agent_executor = create_react_agent(model, tools)
-
-    print("Hello! I am a ReAct agent. How can I assist you today?")
-    print("You can ask me anything, and I will try to help you with my reasoning and actions.")
-
-    while True:
-        user_input = input("\nYou: ").strip()
-
-        if user_input == "quit":
-            break
-
-        print("\nAssistant: ", end="")
-        for chunk in agent_executor.stream(
-            {"messages": [HumanMessage(content=user_input)]}
-        ):
-            if "agent" in chunk and "messages" in chunk["agent"]:
-                for message in chunk["agent"]["messages"]:
-                    print(message.content, end="")
-                print()
+def extract_pdf_text(uploaded_file) -> str:
+    pdf_bytes = io.BytesIO(uploaded_file.getvalue())
+    reader = PyPDF2.PdfReader(pdf_bytes)
+    pages = [page.extract_text() or "" for page in reader.pages]
+    return "\n".join(pages).strip()
 
 
-if __name__ == "__main__":
-    main()
+def build_feedback(resume_text: str) -> list[str]:
+    feedback: list[str] = []
+
+    if len(resume_text) < 400:
+        feedback.append("Add more detail about your impact, tools, and measurable results.")
+    if "@" not in resume_text:
+        feedback.append("Include a professional email address.")
+    if not any(keyword in resume_text.lower() for keyword in ["experience", "work", "employment"]):
+        feedback.append("Add a clear work experience section.")
+    if not any(keyword in resume_text.lower() for keyword in ["skill", "tools", "technology"]):
+        feedback.append("Add a dedicated skills section.")
+    if not any(char.isdigit() for char in resume_text):
+        feedback.append("Use numbers to show outcomes, for example percentages, revenue, or time saved.")
+
+    if not feedback:
+        feedback.append("The resume already covers the core basics well. Focus on sharper wording and stronger quantified achievements.")
+
+    return feedback
+
+
+uploaded_file = st.file_uploader("Upload Resume (PDF)", type=["pdf"])
+
+if uploaded_file is not None:
+    resume_text = extract_pdf_text(uploaded_file)
+
+    if not resume_text:
+        st.error("No readable text was found in this PDF.")
+    else:
+        st.subheader("Extracted Text Preview")
+        st.text_area("Resume Text", resume_text[:3000], height=250)
+
+        st.subheader("Resume Feedback")
+        for item in build_feedback(resume_text):
+            st.write(f"- {item}")
+
+        st.caption("This review runs locally inside the Streamlit app.")
